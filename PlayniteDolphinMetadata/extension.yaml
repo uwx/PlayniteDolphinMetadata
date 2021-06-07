@@ -1,6 +1,6 @@
 Id: DolphinMetadata
 Name: Dolphin Metadata Importer
 Author: Maxine
-Version: 1.0
+Version: 1.1
 Module: PlayniteDolphinMetadata.dll
 Type: MetadataProvider
