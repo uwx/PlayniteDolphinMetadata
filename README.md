@@ -12,7 +12,7 @@ You have to restart Playnite after installing the extension.
 
 ### For ROMs using the .RVZ or .WAD format
 
-1. First, run Dolphin at least once. It must be configured with your .RVZ or .WAD games visible.
+1. First, run Dolphin Emulator at least once. It must be configured with your .RVZ or .WAD games visible.
 2. In your Playnite settings, go to Metadata Sources > GameTDB (Dolphin).  
    ![image](https://user-images.githubusercontent.com/13633343/120955408-acb30f00-c727-11eb-93e8-428d5845600e.png)
 3. Set the path to your Dolphin Emulator user folder, which is usually `Documents\Dolphin Emulator`  
