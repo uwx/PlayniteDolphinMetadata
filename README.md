@@ -4,7 +4,7 @@ Adds support for loading [GameTDB](https://www.gametdb.com/) metadata for Ninten
 
 ## Installation
 
-Download the .zip, extract to your Playnite folder (such as `%APPDATA%\Playnite`). .pext version coming soon!
+[Download the .zip](https://github.com/uwx/PlayniteDolphinMetadata/releases), extract to your Playnite folder (such as `%APPDATA%\Playnite`). .pext version coming soon!
 
 You have to restart Playnite after installing the extension.
 
