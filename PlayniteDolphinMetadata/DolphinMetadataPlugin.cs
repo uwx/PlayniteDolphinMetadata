@@ -121,17 +121,18 @@ namespace PlayniteDolphinMetadata
 
         public override List<MetadataField> SupportedFields { get; } = new List<MetadataField>
         {
+            MetadataField.Name,
             MetadataField.Description,
             MetadataField.CoverImage,
-            MetadataField.BackgroundImage,
-            MetadataField.ReleaseDate,
-            MetadataField.Developers,
-            MetadataField.Publishers,
-            MetadataField.Genres,
-            MetadataField.Links,
-            MetadataField.Tags,
-            MetadataField.CriticScore,
-            MetadataField.CommunityScore
+            // MetadataField.BackgroundImage,
+            // MetadataField.ReleaseDate,
+            // MetadataField.Developers,
+            // MetadataField.Publishers,
+            // MetadataField.Genres,
+            // MetadataField.Links,
+            // MetadataField.Tags,
+            // MetadataField.CriticScore,
+            // MetadataField.CommunityScore
         };
 
         private DolphinMetadataSettings CreateSettingsIfNotExists()
