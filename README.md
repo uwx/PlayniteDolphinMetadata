@@ -4,7 +4,7 @@ Adds support for loading [GameTDB](https://www.gametdb.com/) metadata for Ninten
 
 ## Installation
 
-[Download the .zip](https://github.com/uwx/PlayniteDolphinMetadata/releases), extract to your Playnite folder (such as `%APPDATA%\Playnite`). .pext version coming soon!
+[Download the .pext](https://github.com/uwx/PlayniteDolphinMetadata/releases) and open it with Playnite.
 
 You have to restart Playnite after installing the extension.
 
@@ -13,7 +13,7 @@ You have to restart Playnite after installing the extension.
 ### For ROMs using the .RVZ or .WAD format
 
 1. First, run Dolphin Emulator at least once. It must be configured with your .RVZ or .WAD games visible.
-2. In your Playnite settings, go to Metadata Sources > GameTDB (Dolphin).  
+2. In your Playnite add-ons menu, go to Extension settings > Metadata Sources > GameTDB (Dolphin).  
    ![image](https://user-images.githubusercontent.com/13633343/120955408-acb30f00-c727-11eb-93e8-428d5845600e.png)
 3. Set the path to your Dolphin Emulator user folder, which is usually `Documents\Dolphin Emulator`  
    ![image](https://user-images.githubusercontent.com/13633343/120955496-e08e3480-c727-11eb-990e-9b60b1bc7e66.png)
