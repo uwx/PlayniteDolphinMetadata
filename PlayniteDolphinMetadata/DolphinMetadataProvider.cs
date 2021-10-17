@@ -9,7 +9,7 @@ using System.Net;
 using System.Text;
 using System.Xml;
 using Playnite.SDK;
-using Playnite.SDK.Metadata;
+using Playnite.SDK.Models;
 using Playnite.SDK.Plugins;
 
 namespace PlayniteDolphinMetadata
@@ -24,11 +24,11 @@ namespace PlayniteDolphinMetadata
         private readonly DolphinMetadataPlugin _plugin;
         private readonly string _pluginUserDataPath;
         private readonly XmlDocument _wiiDb;
-        private readonly byte[] _gamelist;
+        private readonly byte[]? _gamelist;
 
-        private List<MetadataField> _availableFields;
+        private List<MetadataField>? _availableFields;
 
-        private GameTDBData _gameData;
+        private GameTdbData? _gameData;
 
         public DolphinMetadataProvider(MetadataRequestOptions options, DolphinMetadataPlugin plugin)
         {
@@ -46,14 +46,7 @@ namespace PlayniteDolphinMetadata
             _plugin.ReleaseWiiDb();
         }
 
-        public override List<MetadataField> AvailableFields
-        {
-            get
-            {
-                if (_availableFields == null) _availableFields = GetAvailableFields();
-                return _availableFields;
-            }
-        }
+        public override List<MetadataField> AvailableFields => _availableFields ??= GetAvailableFields();
 
         private List<MetadataField> GetAvailableFields()
         {
@@ -85,7 +78,12 @@ namespace PlayniteDolphinMetadata
             // TODO what is this
             //if (_options.IsBackgroundDownload) return false;
 
-            var gamePath = _options.GameData.GameImagePath;
+            var gamePath = FindGamePath(_options.GameData.Roms);
+            if (gamePath == null)
+            {
+                return false; // Not a ROM at all!
+            }
+            
             var dllPath = typeof(DolphinMetadataProvider).Assembly.Location;
 
             Logger.Debug("Getting metadata for " + gamePath);
@@ -124,6 +122,31 @@ namespace PlayniteDolphinMetadata
                     Logger.Warn($"Unsupported ROM extension {Path.GetExtension(gamePath).ToLowerInvariant()}");
                     return false;
             }
+        }
+
+        // Find the best ROM 
+        private static string? FindGamePath(IEnumerable<GameRom> gameRoms)
+        {
+            return gameRoms.OrderBy(rom =>
+            {
+                switch (Path.GetExtension(rom.Path).ToLowerInvariant())
+                {
+                    case ".rvz":
+                    case ".wad":
+                        return -1;
+                    case ".iso":
+                    case ".ciso":
+                    case ".wbi":
+                    case ".wbfs":
+                    case ".wdf":
+                    case ".wia":
+                    case ".gcz":
+                    case ".fst":
+                        return 1;
+                    default:
+                        return -2;
+                }
+            }).FirstOrDefault()?.Path;
         }
 
         private bool LoadGameDataRvz(string gamePath)
@@ -186,7 +209,7 @@ namespace PlayniteDolphinMetadata
                     _gamelist[location1 + 2] == 0x00 &&
                     _gamelist[location1 + 3] == 0x00)
                 {
-                    var id6bytes = new byte[]
+                    var id6Bytes = new[]
                     {
                         _gamelist[location1+4],
                         _gamelist[location1+5],
@@ -196,12 +219,12 @@ namespace PlayniteDolphinMetadata
                         _gamelist[location1+9],
                     };
 
-                    if (!ValidateId6(id6bytes))
+                    if (!ValidateId6(id6Bytes))
                     {
                         continue;
                     }
 
-                    var id6 = Encoding.ASCII.GetString(id6bytes);
+                    var id6 = Encoding.ASCII.GetString(id6Bytes);
                     Logger.Debug($"RVZ: Found ID6: {id6}");
                     return ParseGameData(id6);
                 }
@@ -228,7 +251,7 @@ namespace PlayniteDolphinMetadata
 
         private bool LoadGameDataWit(string gamePath, string dllPath)
         {
-            var witPath = Path.Combine(Path.GetDirectoryName(dllPath), "wit/bin/wit.exe");
+            var witPath = Path.Combine(Path.GetDirectoryName(dllPath) ?? ".", "wit/bin/wit.exe");
 
             if (!File.Exists(witPath))
             {
@@ -248,8 +271,8 @@ namespace PlayniteDolphinMetadata
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.CreateNoWindow = true;
                 process.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                process.OutputDataReceived += (sender, args) => sb.Append(args.Data);
-                process.ErrorDataReceived += (sender, args) => Logger.Error($"WIT StdErr: {args.Data}");
+                process.OutputDataReceived += (_, args) => sb.Append(args.Data);
+                process.ErrorDataReceived += (_, args) => Logger.Error($"WIT StdErr: {args.Data}");
                 process.Start();
                 process.BeginOutputReadLine();
                 process.WaitForExit();
@@ -289,28 +312,28 @@ namespace PlayniteDolphinMetadata
                 }
             }
 
-            _gameData = GameTDBData.Parse(foundGameElement);
-            Logger.Debug($"Found ID6 game match in database: {(_gameData.GetTitle("EN") ?? _gameData.RomName)}");
+            _gameData = GameTdbData.Parse(foundGameElement);
+            Logger.Debug($"Found ID6 game match in database: {_gameData.GetTitle("EN") ?? _gameData.RomName}");
             return true;
         }
 
-        public override string GetName()
+        public override string? GetName(GetMetadataFieldArgs args)
         {
             if (AvailableFields.Contains(MetadataField.Name) && _gameData != null) 
                 return _gameData.GetTitle(_settings.LanguagePreference);
 
-            return base.GetName();
+            return base.GetName(args);
         }
 
-        public override string GetDescription()
+        public override string? GetDescription(GetMetadataFieldArgs args)
         {
             if (AvailableFields.Contains(MetadataField.Description) && _gameData != null)
                 return _gameData.GetSynopsis(_settings.LanguagePreference);
 
-            return base.GetDescription();
+            return base.GetDescription(args);
         }
 
-        public override MetadataFile GetCoverImage()
+        public override MetadataFile? GetCoverImage(GetMetadataFieldArgs args)
         {
             if (AvailableFields.Contains(MetadataField.CoverImage) && _gameData != null)
             {
@@ -339,7 +362,7 @@ namespace PlayniteDolphinMetadata
                 }
             }
 
-            return base.GetCoverImage();
+            return base.GetCoverImage(args);
         }
 
         /// <summary>
@@ -347,7 +370,7 @@ namespace PlayniteDolphinMetadata
         /// </summary>
         /// <param name="data">Byte array data for the cover, or <code>null</code> if none found</param>
         /// <param name="isInRequestedFormat"><code>false</code> if the only cover found is not in the format specified in <see cref="DolphinMetadataSettings.CoverDownloadPreference"/></param>
-        private void FindGoodCover(out byte[] data, out bool isInRequestedFormat)
+        private void FindGoodCover(out byte[]? data, out bool isInRequestedFormat)
         {
             isInRequestedFormat = true;
 
@@ -366,9 +389,12 @@ namespace PlayniteDolphinMetadata
                 }
 
                 // Alternatively: Try in any language
-                foreach (var language in _gameData.Languages)
+                if (_gameData != null)
                 {
-                    if (TryDownloadCover(language, webClient, out data)) return;
+                    foreach (var language in _gameData.Languages)
+                    {
+                        if (TryDownloadCover(language, webClient, out data)) return;
+                    }
                 }
             }
 
@@ -383,8 +409,12 @@ namespace PlayniteDolphinMetadata
         /// <param name="result">Where the downloaded data should be stored (null if return value is false)</param>
         /// <param name="format">What format the cover should be downloaded in, defaults to <see cref="DolphinMetadataSettings.CoverDownloadPreference"/></param>
         /// <returns><code>true</code> if the download was successful, <code>false</code> on 404 errors</returns>
-        private bool TryDownloadCover(string language, WebClient webClient, out byte[] result, string format = null)
+        private bool TryDownloadCover(string language, WebClient webClient, out byte[]? result, string? format = null)
         {
+            if (_gameData == null)
+            {
+                throw new ArgumentException($"{nameof(_gameData)} must not be null");
+            }
             try
             {
                 result = webClient.DownloadData(_gameData.GetCoverUrl(language, format ?? _settings.CoverDownloadPreference.Substring("cropped_".Length)));
@@ -392,7 +422,7 @@ namespace PlayniteDolphinMetadata
             }
             catch (WebException e)
             {
-                if ((e.Response as HttpWebResponse).StatusCode != HttpStatusCode.NotFound)
+                if (e.Response is not HttpWebResponse { StatusCode: HttpStatusCode.NotFound })
                 {
                     throw;
                 }
@@ -407,14 +437,14 @@ namespace PlayniteDolphinMetadata
         /// </summary>
         /// <param name="data">The image data</param>
         /// <returns>Cropped image data (in PNG)</returns>
-        private byte[] CropBoxart(byte[] data)
+        private static byte[] CropBoxart(byte[] data)
         {
-            const double CropRatio = 483.0 / 1024.0; // for a 1024-wide image, the (about) 483 rightmost pixels are the front cover
+            const double cropRatio = 483.0 / 1024.0; // for a 1024-wide image, the (about) 483 rightmost pixels are the front cover
 
             MemoryStream dataStream;
             using (var inBitmap = (Bitmap)Image.FromStream(new MemoryStream(data)))
             {
-                int width = (int)Math.Round(inBitmap.Width * CropRatio);
+                var width = (int)Math.Round(inBitmap.Width * cropRatio);
 
                 using (var outBitmap = new Bitmap(width, inBitmap.Height, PixelFormat.Format32bppArgb))
                 using (var g = Graphics.FromImage(outBitmap))

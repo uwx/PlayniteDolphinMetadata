@@ -2,12 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Windows.Controls;
 using System.Xml;
-using Newtonsoft.Json;
 using Playnite.SDK;
 using Playnite.SDK.Plugins;
 
@@ -17,19 +15,19 @@ namespace PlayniteDolphinMetadata
     {
         private static readonly ILogger Logger = LogManager.GetLogger();
 
-        private XmlDocument _wiiDb;
-        private byte[] _gamelist;
-        private readonly object _wiiDbLock = new object();
+        private XmlDocument? _wiiDb;
+        private byte[]? _gamelist;
+        private readonly object _wiiDbLock = new();
         private volatile int _wiiDbReferenceCount;
         
-        private DolphinMetadataSettings _settings;
+        private readonly DolphinMetadataSettings _settings;
 
         public DolphinMetadataPlugin(IPlayniteAPI playniteApi) : base(playniteApi)
         {
             _settings = CreateSettingsIfNotExists();
         }
 
-        public (XmlDocument wiiDb, byte[] gamelist) GetWiiDb()
+        public (XmlDocument wiiDb, byte[]? gamelist) GetWiiDb()
         {
             if (_wiiDb == null)
             {

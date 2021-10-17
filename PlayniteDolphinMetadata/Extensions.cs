@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿// ReSharper disable SuggestBaseTypeForParameter
+// ReSharper disable LoopCanBeConvertedToQuery
 
 namespace PlayniteDolphinMetadata
 {
@@ -9,7 +10,7 @@ namespace PlayniteDolphinMetadata
             if (IsEmptyLocate(self, candidate))
                 return -1;
 
-            for (int i = 0; i < self.Length; i++)
+            for (var i = 0; i < self.Length; i++)
             {
                 if (!IsMatch(self, i, candidate))
                     continue;
@@ -20,19 +21,19 @@ namespace PlayniteDolphinMetadata
             return -1;
         }
 
-        static bool IsMatch(byte[] array, int position, byte[] candidate)
+        private static bool IsMatch(byte[] array, int position, byte[] candidate)
         {
-            if (candidate.Length > (array.Length - position))
+            if (candidate.Length > array.Length - position)
                 return false;
 
-            for (int i = 0; i < candidate.Length; i++)
+            for (var i = 0; i < candidate.Length; i++)
                 if (array[position + i] != candidate[i])
                     return false;
 
             return true;
         }
 
-        static bool IsEmptyLocate(byte[] array, byte[] candidate)
+        private static bool IsEmptyLocate(byte[]? array, byte[]? candidate)
         {
             return array == null
                 || candidate == null

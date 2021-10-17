@@ -1,39 +1,47 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Xml;
 using System.Linq;
+using JetBrains.Annotations;
 using Playnite.SDK;
+
+namespace System.Runtime.CompilerServices
+{
+    [ExcludeFromCodeCoverage, DebuggerNonUserCode, UsedImplicitly]
+    internal static class IsExternalInit {}
+}
 
 namespace PlayniteDolphinMetadata
 {
-    public class GameTDBData
+    public class GameTdbData
     {
         private static readonly ILogger Logger = LogManager.GetLogger();
 
-        public string Id { get; set; }
-        public string Platform { get; set; } // "type"
-        public string Region { get; set; }
-        public string[] Languages { get; set; } // comma-separated
-        public IDictionary<string, string> Titles { get; set; } = new Dictionary<string, string>(); // key is the language key
-        public IDictionary<string, string> Synopses { get; set; } = new Dictionary<string, string>(); // key is the language key
-        public string Developer { get; set; }
-        public string Publisher { get; set; }
-        public Date ReleaseDate { get; set; }
-        public string[] Genre { get; set; } // comma-separated
-        public Rating Rating { get; set; }
-        public int? Players { get; set; } // input players
-        public string[] RequiredAccessories { get; set; } // control type required="true"
-        public string[] Accessories { get; set; } // control type required="false"
-        public int? OnlinePlayers { get; set; } // wi-fi players
-        public string[] OnlineFeatures { get; set; } // <wi-fi><feature>
-        public int? SaveBlocks { get; set; }
-        public string Version { get; set; } // <rom version
-        public ulong? Size { get; set; } // <rom size
-        public string RomName { get; set; } // <rom name
-        public string Crc { get; set; } // <rom crc
-        public string Md5 { get; set; } // <rom md5
-        public string Sha1 { get; set; } // <rom sha1
+        public string? Id { get; init; }
+        public string? Platform { get; init; } // "type"
+        public string? Region { get; init; }
+        public string[] Languages { get; init; } = null!; // comma-separated
+        public IDictionary<string, string?> Titles { get; init; } = new Dictionary<string, string?>(); // key is the language key
+        public IDictionary<string, string?> Synopses { get; init; } = new Dictionary<string, string?>(); // key is the language key
+        public string? Developer { get; init; }
+        public string? Publisher { get; init; }
+        public Date? ReleaseDate { get; init; }
+        public string[] Genre { get; init; } = null!; // comma-separated
+        public Rating? Rating { get; init; }
+        public int? Players { get; init; } // input players
+        public string[] RequiredAccessories { get; init; } = null!; // control type required="true"
+        public string[] Accessories { get; init; } = null!; // control type required="false"
+        public int? OnlinePlayers { get; init; } // wi-fi players
+        public string[] OnlineFeatures { get; init; } = null!; // <wi-fi><feature>
+        public int? SaveBlocks { get; init; }
+        public string? Version { get; init; } // <rom version
+        public ulong? Size { get; init; } // <rom size
+        public string? RomName { get; init; } // <rom name
+        public string? Crc { get; init; } // <rom crc
+        public string? Md5 { get; init; } // <rom md5
+        public string? Sha1 { get; init; } // <rom sha1
 
         public string GetCoverUrl(string targetLanguage, string coverType = "cover") // targetLanguage: one of DE FR ES IT NL EN
         {
@@ -57,7 +65,7 @@ namespace PlayniteDolphinMetadata
             return $"https://art.gametdb.com/wii/{coverType}/{regionCode}/{Id}.png";
         }
 
-        public string GetTitle(string targetLanguage)
+        public string? GetTitle(string targetLanguage)
         {
             return Titles.TryGetValue(targetLanguage, out var title)
                 ? title
@@ -67,7 +75,7 @@ namespace PlayniteDolphinMetadata
             // ?? RomName;
         }
 
-        public string GetSynopsis(string targetLanguage)
+        public string? GetSynopsis(string targetLanguage)
         {
             return Synopses.TryGetValue(targetLanguage, out var synopsis)
                 ? synopsis
@@ -76,7 +84,7 @@ namespace PlayniteDolphinMetadata
                 : Synopses.Values.FirstOrDefault();
         }
 
-        public static GameTDBData Parse(XmlElement rootElement)
+        public static GameTdbData Parse(XmlElement rootElement)
         {
             var locales = rootElement.GetElementsByTagName("locale").OfType<XmlElement>().ToArray();
             var wifi = GetElementOrNull(rootElement, "wi-fi");
@@ -87,7 +95,7 @@ namespace PlayniteDolphinMetadata
                     ?? Array.Empty<XmlElement>();
             var rom = GetElementOrNull(rootElement, "rom");
 
-            return new GameTDBData
+            return new GameTdbData
             {
                 // <id>
                 Id = GetElementText(rootElement, "id"),
@@ -103,17 +111,11 @@ namespace PlayniteDolphinMetadata
 
                 // <locale> (multiple elements)
                 Titles = locales
-                    .Select(e => {
-                        var titleList = e.GetElementsByTagName("title");
-                        return (lang: e.GetAttribute("lang"), title: titleList.Count > 0 ? titleList[0].InnerText : null);
-                    })
+                    .Select(e => (lang: e.GetAttribute("lang"), title: GetElementText(e, "title")))
                     .Where(e => e.title != null)
                     .ToDictionary(e => e.lang, e => e.title),
                 Synopses = locales
-                    .Select(e => {
-                        var titleList = e.GetElementsByTagName("synopsis");
-                        return (lang: e.GetAttribute("lang"), title: titleList.Count > 0 ? titleList[0].InnerText : null);
-                    })
+                    .Select(e => (lang: e.GetAttribute("lang"), title: GetElementText(e, "synopsis")))
                     .Where(e => e.title != null)
                     .ToDictionary(e => e.lang, e => e.title),
 
@@ -124,16 +126,16 @@ namespace PlayniteDolphinMetadata
                 Publisher = GetElementText(rootElement, "publisher"),
 
                 // <date>
-                ReleaseDate = GetElementOrNull(rootElement, "date") is XmlElement date ? Date.Parse(date) : null,
+                ReleaseDate = ParseOrNull(Date.Parse, GetElementOrNull(rootElement, "date")),
 
                 // <genre>
                 Genre = GetElementText(rootElement, "genre")?.Split(',') ?? Array.Empty<string>(),
 
                 // <rating>
-                Rating = GetElementOrNull(rootElement, "rating") is XmlElement rating ? Rating.Parse(rating) : null,
+                Rating = ParseOrNull(Rating.Parse, GetElementOrNull(rootElement, "rating")),
 
                 // <input>
-                Players = int.TryParse(input.GetAttribute("players"), out var players) ? (int?)players : null,
+                Players = TryParseOrNull<int>(int.TryParse, input?.GetAttribute("players")),
                 RequiredAccessories = control
                     .Where(e => e.GetAttribute("required") == "true")
                     .Select(e => e.GetAttribute("type"))
@@ -144,7 +146,7 @@ namespace PlayniteDolphinMetadata
                     .ToArray(),
 
                 // <wi-fi>
-                OnlinePlayers = int.TryParse(wifi.GetAttribute("players"), out var playersWifi) ? (int?)playersWifi : null,
+                OnlinePlayers = TryParseOrNull<int>(int.TryParse, wifi?.GetAttribute("players")),
                 OnlineFeatures = wifi?.GetElementsByTagName("feature")
                     .OfType<XmlElement>()
                     .Select(e => e.InnerText)
@@ -152,11 +154,11 @@ namespace PlayniteDolphinMetadata
                     ?? Array.Empty<string>(),
 
                 // <save>
-                SaveBlocks = int.TryParse(GetElementOrNull(rootElement, "save")?.GetAttribute("blocks"), out var blocks) ? (int?)blocks : null,
+                SaveBlocks = TryParseOrNull<int>(int.TryParse, GetElementOrNull(rootElement, "save")?.GetAttribute("blocks")),
 
                 // <rom>
                 Version = rom?.GetAttribute("version"),
-                Size = ulong.TryParse(rom?.GetAttribute("size"), out var size) ? (ulong?) size : null,
+                Size = TryParseOrNull<ulong>(ulong.TryParse, rom?.GetAttribute("size")),
                 RomName = rom?.GetAttribute("name"),
                 Crc = rom?.GetAttribute("crc"),
                 Md5 = rom?.GetAttribute("md5"),
@@ -164,13 +166,24 @@ namespace PlayniteDolphinMetadata
             };
         }
 
-        internal static string GetElementText(XmlElement el, string tagName)
+        private static TResult? ParseOrNull<TInput, TResult>(Func<TInput, TResult> parser, TInput? input)
+        {
+            return input != null ? parser(input) : default;
+        }
+
+        private delegate bool TryParse<TOut>(string s, out TOut result);
+        private static TResult? TryParseOrNull<TResult>(TryParse<TResult> parser, string? input)
+        {
+            return input != null && parser(input, out var output) ? output : default;
+        }
+
+        internal static string? GetElementText(XmlElement el, string tagName)
         {
             var res = el.GetElementsByTagName(tagName);
             return res.Count > 0 ? res[0].InnerText : null;
         }
 
-        internal static XmlElement GetElementOrNull(XmlElement el, string tagName)
+        internal static XmlElement? GetElementOrNull(XmlElement el, string tagName)
         {
             var res = el.GetElementsByTagName(tagName);
             return res.Count > 0 ? res[0] as XmlElement : null;
@@ -179,9 +192,9 @@ namespace PlayniteDolphinMetadata
 
     public class Rating
     {
-        public string Type { get; set; }
-        public string TheRating { get; set; } // "value"
-        public string Descriptor { get; set; }
+        public string Type { get; init; } = null!;
+        public string TheRating { get; init; } = null!; // "value"
+        public string? Descriptor { get; init; }
 
         public static Rating Parse(XmlElement xmlElement)
         {
@@ -189,24 +202,24 @@ namespace PlayniteDolphinMetadata
             {
                 Type = xmlElement.GetAttribute("type"),
                 TheRating = xmlElement.GetAttribute("value"),
-                Descriptor = GameTDBData.GetElementText(xmlElement, "descriptor")
+                Descriptor = GameTdbData.GetElementText(xmlElement, "descriptor")
             };
         }
     }
 
     public class Date
     {
-        public int? Year { get; set; }
-        public int? Month { get; set; }
-        public int? Day { get; set; }
+        public int? Year { get; init; }
+        public int? Month { get; init; }
+        public int? Day { get; init; }
 
         public static Date Parse(XmlElement xmlElement)
         {
             return new Date
             {
-                Year = int.TryParse(xmlElement.GetAttribute("year"), out var year) ? (int?) year : null,
-                Month = int.TryParse(xmlElement.GetAttribute("month"), out var month) ? (int?)month : null,
-                Day = int.TryParse(xmlElement.GetAttribute("day"), out var day) ? (int?)day : null,
+                Year = int.TryParse(xmlElement.GetAttribute("year"), out var year) ? year : null,
+                Month = int.TryParse(xmlElement.GetAttribute("month"), out var month) ? month : null,
+                Day = int.TryParse(xmlElement.GetAttribute("day"), out var day) ? day : null,
             };
         }
     }
