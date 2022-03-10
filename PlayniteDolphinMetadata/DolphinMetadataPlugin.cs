@@ -6,17 +6,18 @@ using System.Net;
 using System.Threading;
 using System.Windows.Controls;
 using System.Xml;
+using JetBrains.Annotations;
 using Playnite.SDK;
 using Playnite.SDK.Plugins;
 
 namespace PlayniteDolphinMetadata
 {
+    [PublicAPI]
     public class DolphinMetadataPlugin : MetadataPlugin
     {
         private static readonly ILogger Logger = LogManager.GetLogger();
 
         private XmlDocument? _wiiDb;
-        private byte[]? _gamelist;
         private readonly object _wiiDbLock = new();
         private volatile int _wiiDbReferenceCount;
         
@@ -27,7 +28,7 @@ namespace PlayniteDolphinMetadata
             _settings = CreateSettingsIfNotExists();
         }
 
-        public (XmlDocument wiiDb, byte[]? gamelist) GetWiiDb()
+        public XmlDocument GetWiiDb()
         {
             if (_wiiDb == null)
             {
@@ -40,25 +41,14 @@ namespace PlayniteDolphinMetadata
 
                         _wiiDb = new XmlDocument();
                         _wiiDb.Load(wiiDbPath);
-
-                        // Load gamelist.cache
-                        if (!string.IsNullOrWhiteSpace(_settings.PathToDolphinUserFolder))
-                        {
-                            var gamelistCachePath = Path.Combine(_settings.PathToDolphinUserFolder, "Cache", "gamelist.cache");
-                            if (File.Exists(gamelistCachePath))
-                            {
-                                Logger.Debug("Loading gamelist.cache into memory");
-                                _gamelist = File.ReadAllBytes(gamelistCachePath);
-                                Logger.Debug("Loaded gamelist.cache into memory");
-                            }
-                        }
                     }
                 }
             }
 
             Interlocked.Increment(ref _wiiDbReferenceCount);
-
-            return (_wiiDb, _gamelist);
+            
+            // ReSharper disable once InconsistentlySynchronizedField
+            return _wiiDb;
         }
 
         public void ReleaseWiiDb()
@@ -69,7 +59,6 @@ namespace PlayniteDolphinMetadata
                 lock (_wiiDbLock)
                 {
                     _wiiDb = null;
-                    _gamelist = null;
                 }
             }
         }
@@ -115,9 +104,9 @@ namespace PlayniteDolphinMetadata
         }
 
         public override Guid Id { get; } = Guid.Parse("b7761d6c-2b05-44e7-9046-9ed3da7d8d68");
-        public override string Name { get; } = "GameTDB (Dolphin)";
+        public override string Name { get; } = "GameTDB";
 
-        public override List<MetadataField> SupportedFields { get; } = new List<MetadataField>
+        public override List<MetadataField> SupportedFields { get; } = new()
         {
             MetadataField.Name,
             MetadataField.Description,

@@ -24,7 +24,6 @@ namespace PlayniteDolphinMetadata
         private readonly DolphinMetadataPlugin _plugin;
         private readonly string _pluginUserDataPath;
         private readonly XmlDocument _wiiDb;
-        private readonly byte[]? _gamelist;
 
         private List<MetadataField>? _availableFields;
 
@@ -38,7 +37,7 @@ namespace PlayniteDolphinMetadata
             _pluginUserDataPath = plugin.GetPluginUserDataPath(); 
             _settings = plugin.LoadPluginSettings<DolphinMetadataSettings>();
             //DolphinMetadataSettings.MigrateSettingsVersion(_settings, plugin);
-            (_wiiDb, _gamelist) = plugin.GetWiiDb();
+            _wiiDb = plugin.GetWiiDb();
         }
 
         public override void Dispose() {
@@ -91,7 +90,6 @@ namespace PlayniteDolphinMetadata
             switch (Path.GetExtension(gamePath).ToLowerInvariant())
             {
                 case ".rvz":
-                case ".wad": // WAD is not compatible with RVZ, but it can still be in Dolphin's gamecache.
                     try
                     {
                         return LoadGameDataRvz(gamePath);
@@ -99,6 +97,16 @@ namespace PlayniteDolphinMetadata
                     catch (Exception e)
                     {
                         Logger.Error(e, $"Failed to get game data from RVZ file: {gamePath}");
+                        return false;
+                    }
+                case ".wad":
+                    try
+                    {
+                        return LoadGameDataWad(gamePath);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error(e, $"Failed to get game data from WAD file: {gamePath}");
                         return false;
                     }
                 case ".iso":
@@ -127,7 +135,7 @@ namespace PlayniteDolphinMetadata
         // Find the best ROM 
         private static string? FindGamePath(IEnumerable<GameRom> gameRoms)
         {
-            return gameRoms.OrderBy(rom =>
+            return gameRoms.OrderBy(static rom =>
             {
                 switch (Path.GetExtension(rom.Path).ToLowerInvariant())
                 {
@@ -151,102 +159,46 @@ namespace PlayniteDolphinMetadata
 
         private bool LoadGameDataRvz(string gamePath)
         {
-            if (_gamelist == null)
+            using var stream = File.OpenRead(gamePath);
+            var bytes = new byte[6];
+            
+            // the disc header *should* be in a constant position so hardcoding it here is fine
+            stream.Position = 0x58;
+            stream.Read(bytes, 0, 6);
+
+            if (!ValidateId6(bytes))
             {
-                // No gamelist cache file!
                 return false;
             }
 
-            // TODO, I think it's UTF8 but it may be ANSI?
-            var gamePathSanitizedForDolphin = Encoding.UTF8.GetBytes(Path.GetFullPath(gamePath).Replace('\\', '/'));
-            var location = _gamelist.Locate(gamePathSanitizedForDolphin);
-            if (location == -1)
+            var id6 = Encoding.ASCII.GetString(bytes);
+            return ParseGameData(id6);
+        }
+
+        private bool LoadGameDataWad(string gamePath)
+        {
+            using var stream = File.OpenRead(gamePath);
+            var bytes = new byte[6];
+            
+            // don't know if this is correct, but it's consistent in all the wad files i've checked
+            stream.Position = 0x490;
+            stream.Read(bytes, 0, 4); // read id4
+            stream.Position = 0x498;
+            stream.Read(bytes, 4, 2);
+
+            if (!ValidateId6(bytes))
             {
-                Logger.Warn($"RVZ: Did not find game path in cache: {Encoding.UTF8.GetString(gamePathSanitizedForDolphin)}");
                 return false;
             }
-            var stream = new MemoryStream(_gamelist, location - 4, _gamelist.Length - (location - 4));
-            var reader = new BinaryReader(stream);
 
-            // m_file_path
-            var gamePathLength = reader.ReadInt32();
-            var gamePathRead = reader.ReadBytes(gamePathLength);
-            if (!gamePathSanitizedForDolphin.SequenceEqual(gamePathRead))
-            {
-                // TODO: maybe keep looking for path until one is found, in case one is a substring match.
-                Logger.Warn($"RVZ: Found game path in cache, but it's not an exact match: {Encoding.UTF8.GetString(gamePathSanitizedForDolphin)} vs {Encoding.UTF8.GetString(gamePathRead)}");
-                return false;
-            }
-
-            // m_file_name
-            var fileNameLength = reader.ReadInt32();
-            reader.ReadBytes(fileNameLength);
-
-            // m_file_size
-            reader.ReadInt64();
-
-            // m_volume_size
-            reader.ReadInt64();
-
-            // m_volume_size_is_accurate
-            reader.ReadInt32();
-
-            // m_is_datel_disc
-            reader.ReadInt32();
-
-            // m_is_nkit
-            reader.ReadInt32();
-
-            // Now, the next few elements are dictionaries, which I don't want to parse, so search for the ID6
-            for (int i = (int)stream.Position; i < stream.Length - 10; i++) // 10 is the length of ID6 + 4 byte length specifier
-            {
-                // actual location in byte array
-                var location1 = i + (location - 4);
-
-                // length is 6 in little-endian
-                if (_gamelist[location1 + 0] == 0x06 &&
-                    _gamelist[location1 + 1] == 0x00 &&
-                    _gamelist[location1 + 2] == 0x00 &&
-                    _gamelist[location1 + 3] == 0x00)
-                {
-                    var id6Bytes = new[]
-                    {
-                        _gamelist[location1+4],
-                        _gamelist[location1+5],
-                        _gamelist[location1+6],
-                        _gamelist[location1+7],
-                        _gamelist[location1+8],
-                        _gamelist[location1+9],
-                    };
-
-                    if (!ValidateId6(id6Bytes))
-                    {
-                        continue;
-                    }
-
-                    var id6 = Encoding.ASCII.GetString(id6Bytes);
-                    Logger.Debug($"RVZ: Found ID6: {id6}");
-                    return ParseGameData(id6);
-                }
-            }
-
-            // No ID6 was found despite there being a game path!
-            Logger.Warn($"RVZ: Did not find an adequate ID6 in cache: {Encoding.UTF8.GetString(gamePathSanitizedForDolphin)}");
-            return false;
+            var id6 = Encoding.ASCII.GetString(bytes);
+            return ParseGameData(id6);
         }
 
         // ID6 must be alphanumeric, and exactly 6 characters (none empty)
-        private static bool ValidateId6(byte[] candidateId6)
+        private static bool ValidateId6(IEnumerable<byte> candidateId6)
         {
-            foreach (byte b in candidateId6)
-            {
-                if (!((b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return candidateId6.All(static b => (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9'));
         }
 
         private bool LoadGameDataWit(string gamePath, string dllPath)

@@ -1,6 +1,6 @@
 Id: DolphinMetadata
-Name: Dolphin Metadata Importer
+Name: GameTDB Metadata Importer
 Author: Maxine
-Version: 2.0
+Version: 3.0
 Module: PlayniteDolphinMetadata.dll
 Type: MetadataProvider
