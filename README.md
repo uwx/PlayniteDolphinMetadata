@@ -10,20 +10,7 @@ You have to restart Playnite after installing the extension.
 
 ## Usage
 
-### For ROMs using the .RVZ or .WAD format
-
-1. First, run Dolphin Emulator at least once. It must be configured with your .RVZ or .WAD games visible.
-2. In your Playnite add-ons menu, go to Extension settings > Metadata Sources > GameTDB (Dolphin).  
-   ![image](https://user-images.githubusercontent.com/13633343/120955408-acb30f00-c727-11eb-93e8-428d5845600e.png)
-3. Set the path to your Dolphin Emulator user folder, which is usually `Documents\Dolphin Emulator`  
-   ![image](https://user-images.githubusercontent.com/13633343/120955496-e08e3480-c727-11eb-990e-9b60b1bc7e66.png)
-4. Your .RVZ and .WAD-format ROMs will have metadata downloadable in Playnite.  
-   This support is experimental, so let me know if you have any issues.
-
-Use Edit Game Details > Download Metadata to download with GameTDB as a metadata source. You can also configure it to be used on all metadata
-downloads by going to Settings > Metadata.
-
-### For ROMs using the .ISO, .CISO, .WBFS, .GCZ, .WBI, .WDF, .WIA, or .FST format
+### For ROMs using the .ISO, .CISO, .WBFS, .GCZ, .WBI, .WDF, .WIA, .WAD, .RVZ or .FST format
 
 These will work out of the box, so simply use Edit Game Details > Download Metadata to download with GameTDB as a metadata source. You can also
 configure it to be used on all metadata downloads by going to Settings > Metadata
